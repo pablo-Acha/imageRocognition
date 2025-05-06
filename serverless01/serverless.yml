@@ -6,6 +6,19 @@ service: serverless01
 provider:
   name: aws
   runtime: nodejs20.x
+  region: ${file(config.json):AWS_REGION}
+  environment:
+    BUCKET_NAME: ${file(config.json):S3_IMAGE_BUCKET}
+    TABLE_NAME: ${file(config.json):DYNAMODB_TABLE}
+    # REGION: ${file(config.json):AWS_REGION}
+  
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - s3:*
+        - rekognition:DetectLabels
+      Resource:
+        - arn:aws:s3:::${file(config.json):S3_IMAGE_BUCKET}/*
 
 functions:
   hello:
@@ -14,9 +27,21 @@ functions:
       - httpApi:
           path: /
           method: get
-  post:
-    handler: ejemploPost.post
-    events:
-      - httpApi:
-          path: /
-          method: post
+
+resources:
+  Resources:
+    UploadBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.BUCKET_NAME}
+    ImageTagsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: image
+            AttributeType: S
+        KeySchema:
+          - AttributeName: image
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
